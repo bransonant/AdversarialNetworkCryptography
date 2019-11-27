@@ -1,3 +1,3 @@
 # Adversarial Network Cryptography
 
-![image]diagram.png
+![alt text]/diagram.png
