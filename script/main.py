@@ -8,7 +8,7 @@ Created on Sun Nov 16 18:14:38 2019
 import tensorflow as T
 import numpy as np
 import matplotlib.pyplot as plt
-from layer import ConvLayer, HiddenLayer, get_all_params
+from script.layer import ConvLayer, HiddenLayer, get_all_params
 from lasagne.updates import adam
 
 # Parameters
@@ -20,18 +20,21 @@ comm_len = 16
 # Set this flag to exclude convolutional layers from the networks
 skip_conv = False
 
+
 # Function to generate n random messages and keys
 def gen_data(n=batch_size, msg_len=msg_len, key_len=key_len):
-    return (np.random.randint(0, 2, size=(n, msg_len))*2-1).\
-                astype('floatX'),\
-           (np.random.randint(0, 2, size=(n, key_len))*2-1).\
-                astype('floatX')
+    return (np.random.randint(0, 2, size=(n, msg_len)) * 2 - 1). \
+               astype('floatX'), \
+           (np.random.randint(0, 2, size=(n, key_len)) * 2 - 1). \
+               astype('floatX')
 
-# Function to assess a batch 
+
+# Function to assess a batch
 def assess(pred_fn, n=batch_size, msg_len=msg_len, key_len=key_len):
     msg_in_val, key_val = gen_data(n, msg_len, key_len)
     return np.round(np.abs(msg_in_val[0:n] - \
-           pred_fn(msg_in_val[0:n], key_val[0:n])), 0)
+                           pred_fn(msg_in_val[0:n], key_val[0:n])), 0)
+
 
 # Function to get the error over just one batch
 def err_over_samples(err_fn, n=batch_size):
@@ -40,47 +43,47 @@ def err_over_samples(err_fn, n=batch_size):
 
 
 def __init__(self, reshaped_input, name='unnamed'):
-    
     self.name = name
     self.conv_layer1 = ConvLayer(reshaped_input,
-                                 filter_shape=(2, 1, 4, 1), 
+                                 filter_shape=(2, 1, 4, 1),
                                  image_shape=(None, 1, None, 1),
-                                 stride=(1,1),
+                                 stride=(1, 1),
                                  name=self.name + '_conv1',
-                                 border_mode=(2,0),
+                                 border_mode=(2, 0),
                                  act_fn='relu')
-    
-    self.conv_layer2 = ConvLayer(self.conv_layer1, 
+
+    self.conv_layer2 = ConvLayer(self.conv_layer1,
                                  filter_shape=(4, 2, 2, 1),
                                  image_shape=(None, 2, None, 1),
-                                 stride=(2,1),
+                                 stride=(2, 1),
                                  name=self.name + '_conv2',
-                                 border_mode=(0,0),
+                                 border_mode=(0, 0),
                                  act_fn='relu')
-    
-    self.conv_layer3 = ConvLayer(self.conv_layer2, 
+
+    self.conv_layer3 = ConvLayer(self.conv_layer2,
                                  filter_shape=(4, 4, 1, 1),
                                  image_shape=(None, 4, None, 1),
-                                 stride=(1,1),
+                                 stride=(1, 1),
                                  name=self.name + '_conv3',
-                                 border_mode=(0,0),
+                                 border_mode=(0, 0),
                                  act_fn='relu')
-    
-    self.conv_layer4 = ConvLayer(self.conv_layer3, 
+
+    self.conv_layer4 = ConvLayer(self.conv_layer3,
                                  filter_shape=(1, 4, 1, 1),
                                  image_shape=(None, 4, None, 1),
-                                 stride=(1,1),
+                                 stride=(1, 1),
                                  name=self.name + '_conv4',
-                                 border_mode=(0,0),
+                                 border_mode=(0, 0),
                                  act_fn='tanh')
-    
+
     self.output = self.conv_layer4.output
-    self.layers = [self.conv_layer1, self.conv_layer2, 
+    self.layers = [self.conv_layer1, self.conv_layer2,
                    self.conv_layer3, self.conv_layer4]
     self.params = []
     for l in self.layers:
         self.params += l.params
-            
+
+
 # Tensor variables for the message and key
 msg_in = T.matrix('msg_in')
 key = T.matrix('key')
@@ -102,7 +105,7 @@ if skip_conv:
                              act_fn='tanh')
     alice_comm = alice_conv.output
 else:
-    #Alice's hidden layer for convolution
+    # Alice's hidden layer for convolution
     alice_conv_in = alice_hid.output.reshape((batch_size, 1, msg_len + key_len, 1))
     # Alice's convolutional layers
     alice_conv = (alice_conv_in, 'alice')
@@ -112,7 +115,7 @@ else:
 # Bob's input is the concatenation of Alice's communication and the key
 bob_in = T.concatenate([alice_comm, key], axis=1)
 # He decrypts using a hidden layer and a conv net as per Alice
-bob_hid = HiddenLayer(bob_in, 
+bob_hid = HiddenLayer(bob_in,
                       input_size=comm_len + key_len,
                       hidden_size=comm_len + key_len,
                       name='bob_to_hid',
@@ -131,13 +134,13 @@ else:
 
 # Eve see's Alice's communication to Bob, but not the key
 # She gets an extra hidden layer to try and learn to decrypt the message
-eve_hid1 = HiddenLayer(alice_comm, 
+eve_hid1 = HiddenLayer(alice_comm,
                        input_size=comm_len,
                        hidden_size=comm_len + key_len,
                        name='eve_to_hid1',
                        act_fn='relu')
-                          
-eve_hid2 = HiddenLayer(eve_hid1, 
+
+eve_hid2 = HiddenLayer(eve_hid1,
                        input_size=comm_len + key_len,
                        hidden_size=comm_len + key_len,
                        name='eve_to_hid2',
@@ -163,27 +166,28 @@ decrypt_err_bob = T.mean(T.abs_(msg_in - bob_msg))
 
 loss_bob = decrypt_err_bob + (1. - decrypt_err_eve) ** 2.
 
-
 # Get all the parameters for Bob and Alice, make updates, train and pred funcs
-params   = {'bob' : get_all_params([bob_conv, bob_hid, 
-                                    alice_conv, alice_hid])}
-updates  = {'bob' : adam(loss_bob, params['bob'])}
-err_fn   = {'bob' : T.TensorFlowTheanoFunction(inputs=[msg_in, key],
-                                    outputs=decrypt_err_bob)}
-train_fn = {'bob' : T.TensorFlowTheanoFunction(inputs=[msg_in, key],
-                                    outputs=loss_bob,
-                                    updates=updates['bob'])}
-pred_fn  = {'bob' : T.TensorFlowTheanoFunction(inputs=[msg_in, key], outputs=bob_msg)}
+params = {'bob': get_all_params([bob_conv, bob_hid,
+                                 alice_conv, alice_hid])}
+updates = {'bob': adam(loss_bob, params['bob'])}
+err_fn = {'bob': T.TensorFlowTheanoFunction(inputs=[msg_in, key],
+                                            outputs=decrypt_err_bob)}
+train_fn = {'bob': T.TensorFlowTheanoFunction(inputs=[msg_in, key],
+                                              outputs=loss_bob,
+                                              updates=updates['bob'])}
+pred_fn = {'bob': T.TensorFlowTheanoFunction(inputs=[msg_in, key],
+                                             outputs=bob_msg)}
 
 # Same for Eve
-params['eve']   = get_all_params([eve_hid1, eve_hid2, eve_conv])
-updates['eve']  = adam(decrypt_err_eve, params['eve'])
-err_fn['eve']   = T.TensorFlowTheanoFunction(inputs=[msg_in, key], 
-                                  outputs=decrypt_err_eve)
-train_fn['eve'] = T.TensorFlowTheanoFunction(inputs=[msg_in, key], 
-                                  outputs=decrypt_err_eve,
-                                  updates=updates['eve'])
-pred_fn['eve']  = T.TensorFlowTheanoFunction(inputs=[msg_in, key], outputs=eve_msg)
+params['eve'] = get_all_params([eve_hid1, eve_hid2, eve_conv])
+updates['eve'] = adam(decrypt_err_eve, params['eve'])
+err_fn['eve'] = T.TensorFlowTheanoFunction(inputs=[msg_in, key],
+                                           outputs=decrypt_err_eve)
+train_fn['eve'] = T.TensorFlowTheanoFunction(inputs=[msg_in, key],
+                                             outputs=decrypt_err_eve,
+                                             updates=updates['eve'])
+pred_fn['eve'] = T.TensorFlowTheanoFunction(inputs=[msg_in, key], outputs=eve_msg)
+
 
 # Function for training either Bob+Alice or Eve for some time
 def train(bob_or_eve, results, max_iters, print_every, es=0., es_limit=100):
@@ -191,16 +195,17 @@ def train(bob_or_eve, results, max_iters, print_every, es=0., es_limit=100):
     for i in range(max_iters):
         msg_in_val, key_val = gen_data()
         loss = train_fn[bob_or_eve](msg_in_val, key_val)
-        results = np.hstack((results, 
+        results = np.hstack((results,
                              err_fn[bob_or_eve](msg_in_val, key_val).sum()))
         if i % print_every == 0:
-            print ('training loss:', loss)
+            print('training loss:', loss)
         # Early stopping if we see a low-enough decryption error enough times
         if es and loss < es:
             count += 1
             if count > es_limit:
                 break
     return np.hstack((results, np.repeat(results[-1], max_iters - i - 1)))
+
 
 # Initialise
 results_bob, results_eve = [], []
@@ -210,16 +215,16 @@ adversarial_iterations = 60
 for i in range(adversarial_iterations):
     n = 2000
     print_every = 100
-    print ('training bob and alice, run:', i+1)
+    print('training bob and alice, run:', i + 1)
     results_bob = train('bob', results_bob, n, print_every, es=0.01)
-    print ('training eve, run:', i+1)
+    print('training eve, run:', i + 1)
     results_eve = train('eve', results_eve, n, print_every, es=0.01)
 
 # Plot the results
-plt.plot([np.min(results_bob[i:i+n]) for i in np.arange(0, 
-          len(results_bob), n)])
-plt.plot([np.min(results_eve[i:i+n]) for i in np.arange(0, 
-          len(results_eve), n)])
+plt.plot([np.min(results_bob[i:i + n]) for i in np.arange(0,
+                                                          len(results_bob), n)])
+plt.plot([np.min(results_eve[i:i + n]) for i in np.arange(0,
+                                                          len(results_eve), n)])
 plt.legend(['bob', 'eve'])
 plt.xlabel('adversarial iteration')
 plt.ylabel('lowest decryption error achieved')
