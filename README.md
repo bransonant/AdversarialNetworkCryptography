@@ -1,3 +1,3 @@
 # Adversarial Network Cryptography
 
-![alt text]diagram.png
+![Setup](assets/diagram.png)
