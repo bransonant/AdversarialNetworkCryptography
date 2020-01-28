@@ -222,7 +222,7 @@ sqlparse==0.3.0
 sslyze==2.1.4
 stem==1.7.1
 tensorboard==1.14.0
-tensorflow==1.14.0
+tensorflow==1.15.2
 tensorflow-estimator==1.14.0
 termcolor==1.1.0
 testpath==0.4.2
